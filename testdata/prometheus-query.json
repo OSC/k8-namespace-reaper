@@ -1,0 +1,26 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "namespace": "user-user1"
+        },
+        "value": [
+          1622841850.868,
+          "106245.35199999809"
+        ]
+      },
+      {
+        "metric": {
+          "namespace": "user-user3"
+        },
+        "value": [
+          1622841850.868,
+          "147149.2350001335"
+        ]
+      }
+    ]
+  }
+}

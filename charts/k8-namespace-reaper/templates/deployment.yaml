@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8-namespace-reaper.fullname" . }}
+  namespace: {{ include "k8-namespace-reaper.namespace" . | quote }}
+  labels:
+    {{- include "k8-namespace-reaper.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "k8-namespace-reaper.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "k8-namespace-reaper.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "k8-namespace-reaper.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+          {{- if .Values.config.namespaceLabels }}
+            - --namespace-labels={{ .Values.config.namespaceLabels }}
+          {{- end }}
+          {{- if .Values.config.namespacePrefix }}
+            - --namespace-prefix={{ .Values.config.namespacePrefix }}
+          {{- end }}
+          {{- if .Values.config.prometheusAddress }}
+            - --prometheus-address={{ .Values.config.prometheusAddress }}
+          {{- end }}
+          {{- if .Values.config.prometheusTimeout }}
+            - --prometheus-timeout={{ .Values.config.prometheusTimeout }}
+          {{- end }}
+          {{- if .Values.config.reapAfter }}
+            - --reap-after={{ .Values.config.reapAfter }}
+          {{- end }}
+          {{- if .Values.config.interval }}
+            - --interval={{ .Values.config.interval }}
+          {{- end }}
+            - --listen-address=:{{ .Values.service.port | default 8080 }}
+          {{- range .Values.extraArgs }}
+            - {{ . }}
+          {{- end }}
+          ports:
+            - containerPort: {{ .Values.service.port | default 8080 }}
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

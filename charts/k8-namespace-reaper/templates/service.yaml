@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "k8-namespace-reaper.fullname" . }}
+  namespace: {{ include "k8-namespace-reaper.namespace" . | quote }}
+  labels:
+    {{- include "k8-namespace-reaper.labels" . | nindent 4 }}
+  annotations:
+  {{- range $key, $value := .Values.service.annotations }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "k8-namespace-reaper.selectorLabels" . | nindent 4 }}

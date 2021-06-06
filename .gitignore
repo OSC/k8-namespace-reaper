@@ -1,0 +1,5 @@
+/k8-namespace-reaper
+/coverage.txt
+*.tar.gz
+/dist
+/release
