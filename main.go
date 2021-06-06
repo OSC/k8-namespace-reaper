@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -47,8 +48,8 @@ const (
 
 var (
 	namespaceLabels   = kingpin.Flag("namespace-labels", "Labels to use when filtering namespaces").Default("").Envar("NAMESPACE_LABELS").String()
-	namespacePrefix   = kingpin.Flag("namespace-prefix", "Prefix of namespaces to reap").Default("").Envar("NAMESPACE_PREFIX").String()
-	prometheusAddress = kingpin.Flag("prometheus-address", "URL for Prometheus, eg http://prometheus.example.com:9090").Envar("PROMETHEUS_ADDRESS").Required().String()
+	namespaceRegexp   = kingpin.Flag("namespace-regexp", "Regular expression of namespaces to reap").Default("").Envar("NAMESPACE_REGEXP").String()
+	prometheusAddress = kingpin.Flag("prometheus-address", "URL for Prometheus, eg http://prometheus:9090").Envar("PROMETHEUS_ADDRESS").Required().String()
 	prometheusTimeout = kingpin.Flag("prometheus-timeout", "Duration to timeout Prometheus query").Default("30s").Envar("PROMETHEUS_TIMEOUT").Duration()
 	reapAfter         = kingpin.Flag("reap-after", "How long to wait before reaping unused namespaces").Default("168h").Envar("REAP_AFTER").Duration()
 	interval          = kingpin.Flag("interval", "Duration between reap runs").Default("6h").Envar("INTERLVAL").Duration()
@@ -199,8 +200,8 @@ func setupLogging() log.Logger {
 
 func validateArgs(logger log.Logger) []error {
 	var errs []error
-	if *namespaceLabels == "" && *namespacePrefix == "" {
-		errs = append(errs, errors.New("Must provide either namespaces labels or namespace prefix"))
+	if *namespaceLabels == "" && *namespaceRegexp == "" {
+		errs = append(errs, errors.New("Must provide either namespaces labels or namespace regexp"))
 	}
 	for _, err := range errs {
 		level.Error(logger).Log("err", err)
@@ -232,6 +233,7 @@ func run(clientset kubernetes.Interface, logger log.Logger) error {
 
 func getNamespaces(clientset kubernetes.Interface, logger log.Logger) ([]string, error) {
 	var namespaces []string
+	namespacePattern := regexp.MustCompile(*namespaceRegexp)
 	nsLabels := strings.Split(*namespaceLabels, ",")
 	if len(nsLabels) == 0 {
 		nsLabels = []string{"all"}
@@ -249,8 +251,8 @@ func getNamespaces(clientset kubernetes.Interface, logger log.Logger) ([]string,
 		}
 		level.Debug(logger).Log("msg", "Namespaces returned", "count", len(ns.Items))
 		for _, namespace := range ns.Items {
-			if *namespacePrefix != "" && !strings.HasPrefix(namespace.Name, *namespacePrefix) {
-				level.Debug(logger).Log("msg", "Skipping namespace that does not match namespace prefix", "namespace", namespace.Name)
+			if *namespaceRegexp != "" && !namespacePattern.MatchString(namespace.Name) {
+				level.Debug(logger).Log("msg", "Skipping namespace that does not match namespace regexp", "namespace", namespace.Name)
 				continue
 			}
 			currentAge := timeNow().Sub(namespace.CreationTimestamp.Time)
@@ -278,8 +280,8 @@ func getActiveNamespaces(logger log.Logger) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), *prometheusTimeout)
 	defer cancel()
 	var queryFilter string
-	if *namespacePrefix != "" {
-		queryFilter = fmt.Sprintf("{namespace=~\"%s.+\"}", *namespacePrefix)
+	if *namespaceRegexp != "" {
+		queryFilter = fmt.Sprintf("{namespace=~\"%s\"}", *namespaceRegexp)
 	}
 	query := fmt.Sprintf("max(max_over_time(timestamp(kube_pod_container_info%s)[%s:5m])) by (namespace)",
 		queryFilter, (*reapAfter).String())

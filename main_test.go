@@ -123,8 +123,8 @@ func TestGetNamespacesByLabelLargerAge(t *testing.T) {
 	}
 }
 
-func TestGetNamespacesByPrefix(t *testing.T) {
-	if _, err := kingpin.CommandLine.Parse([]string{"--namespace-prefix=user-", "--prometheus-address=foobar"}); err != nil {
+func TestGetNamespacesByRegexp(t *testing.T) {
+	if _, err := kingpin.CommandLine.Parse([]string{"--namespace-regexp=user-.+", "--prometheus-address=foobar"}); err != nil {
 		t.Fatal(err)
 	}
 	timeNow = func() time.Time {
@@ -148,11 +148,11 @@ func TestGetNamespacesByPrefix(t *testing.T) {
 	}
 }
 
-func TestGetNamespacesByPrefixAndLabel(t *testing.T) {
+func TestGetNamespacesByRegexpAndLabel(t *testing.T) {
 	args := []string{
 		"--prometheus-address=foobar",
 		"--namespace-labels=app.kubernetes.io/name=open-ondemand",
-		"--namespace-prefix=user-",
+		"--namespace-regexp=user-.+",
 	}
 	if _, err := kingpin.CommandLine.Parse(args); err != nil {
 		t.Fatal(err)

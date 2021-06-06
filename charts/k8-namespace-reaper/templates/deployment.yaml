@@ -37,8 +37,8 @@ spec:
           {{- if .Values.config.namespaceLabels }}
             - --namespace-labels={{ .Values.config.namespaceLabels }}
           {{- end }}
-          {{- if .Values.config.namespacePrefix }}
-            - --namespace-prefix={{ .Values.config.namespacePrefix }}
+          {{- if .Values.config.namespaceRegexp }}
+            - --namespace-regexp={{ .Values.config.namespaceRegexp }}
           {{- end }}
           {{- if .Values.config.prometheusAddress }}
             - --prometheus-address={{ .Values.config.prometheusAddress }}

@@ -7,7 +7,7 @@ config:
   namespaceLabels: ""
   # For OnDemand
   # namespaceLabels: app.kubernetes.io/name=open-ondemand
-  namespacePrefix: ""
+  namespaceRegexp: ""
   prometheusAddress: ""
   prometheusTimeout: 30s
   reapAfter: 168h

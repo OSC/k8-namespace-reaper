@@ -23,7 +23,7 @@ spec:
         args:
         - --prometheus-address=http://prometheus:9090
         #- --namespace-labels=
-        #- --namespace-prefix=
+        #- --namespace-regexp=
         - --listen-address=:8080
         - --log-level=info
         - --log-format=logfmt

@@ -11,7 +11,7 @@ Kubernetes service that can reap namespaces that have not run pods recently.
 
 This service is intended for namespaces such as user namespaces that might run job like pods but where the namespace doesn't necessarily need to always exist like if the user account was disabled.
 
-Currently the namespaces to reap can be based on namespace prefix and/or namespace labels . A namespace is reaped if the age of the namespace is past a certain threshold and no recent pods have run in that namespace. A Prometheus instance running [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) is required to check for recently run pods. See [Changing what is reaped](#changing-what-is-reaped) for details on how to configure reaping behavior.
+Currently the namespaces to reap can be based on namespace regular expression and/or namespace labels . A namespace is reaped if the age of the namespace is past a certain threshold and no recent pods have run in that namespace. A Prometheus instance running [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) is required to check for recently run pods. See [Changing what is reaped](#changing-what-is-reaped) for details on how to configure reaping behavior.
 
 Metrics about the count of reaped namespaces, duration of last reaping, and error counts can be queried using Prometheus `/metrics` endpoint exposed as a Service on port `8080`.
 
@@ -65,7 +65,7 @@ kubectl apply -f https://github.com/OSC/k8-namespace-reaper/releases/latest/down
 
 ### Changing what is reaped
 
-If you wish to scope the namespaces searched for reaping change either `--namespace-labels` flag (comma separated) to limit namespaces searched by label, or a namespace prefix with `--namespace-prefix`.
+If you wish to scope the namespaces searched for reaping change either `--namespace-labels` flag (comma separated) to limit namespaces searched by label, or a namespace regular expression with `--namespace-regexp`. The namespace regular expression is also used to limit the scope of the Prometheus query, so that regular expression must also be valid for PromQL.
 
 The minimum age of a namespace to reap is set with `--reap-after`. This flag also sets how far back to look for active namespaces by looking at pod metrics. If `--reap-after` is default of `168h` then a namespace older than 7 days with no pods active in last 7 days will be deleted.
 
@@ -77,8 +77,8 @@ The following flags and environment variables can modify the behavior of the k8-
 
 | Flag    | Environment Variable | Description |
 |---------|----------------------|-------------|
-| --namespace-labels | NAMESPACE_LABELS | Sets namespaces labels for which namespaces to consider for reaping, required if `--namespace-prefix` is not set. |
-| --namespace-prefix | NAMESPACE_PREFIX | Sets namespace prefix for which namespaces to consider for reaping, required if `--namespace-labels` is not set. |
+| --namespace-labels | NAMESPACE_LABELS | Sets namespaces labels for which namespaces to consider for reaping, required if `--namespace-regexp` is not set. |
+| --namespace-regexp | NAMESPACE_REGEXP | Sets namespace regular expression for which namespaces to consider for reaping, required if `--namespace-labels` is not set. |
 | --prometheus-address | PROMETHEUS_ADDRESS | Prometheus address, eg: http://prometheus:9090, this is required |
 | --prometheus-timeout=30s | PROMETHEUS_TIMEOUT=30s | Prometheus query timeout [Duration](https://golang.org/pkg/time/#ParseDuration) |
 | --reap-after=168h | REAP_AFTER=168h |  [Duration](https://golang.org/pkg/time/#ParseDuration) minimum age of namespaces to reap as well as how far back to look for active pods |
