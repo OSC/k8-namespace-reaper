@@ -109,4 +109,4 @@ jobs:
             charts/k8-namespace-reaper/values.yaml
           cat charts/k8-namespace-reaper/values.yaml
       - name: Run chart-testing (install)
-        run: ct install --target-branch=main
+        run: ct install --target-branch=main --namespace=k8-namespace-reaper
