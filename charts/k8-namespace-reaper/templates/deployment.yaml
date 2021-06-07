@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "k8-namespace-reaper.fullname" . }}
-  namespace: {{ include "k8-namespace-reaper.namespace" . | quote }}
+  namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "k8-namespace-reaper.labels" . | nindent 4 }}
 spec:

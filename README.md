@@ -28,7 +28,7 @@ Only Helm 3 is supported.
 ```
 helm repo add k8-namespace-reaper https://osc.github.io/k8-namespace-reaper
 helm install k8-namespace-reaper k8-namespace-reaper/k8-namespace-reaper \
--n k8-namespace-reaper \
+-n k8-namespace-reaper --create-namespace \
 --prometheus-address=http://prometheus:9090
 ```
 
@@ -36,7 +36,7 @@ For Open OnDemand the following adjustments can be made to get a working install
 
 ```
 helm install k8-namespace-reaper k8-namespace-reaper/k8-namespace-reaper \
--n k8-namespace-reaper \
+-n k8-namespace-reaper --create-namespace \
 --prometheus-address=http://prometheus:9090
 --set config.namespaceLabels='app.kubernetes.io/name=open-ondemand'
 ```

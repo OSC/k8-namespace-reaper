@@ -24,11 +24,6 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-namespace:
-  # Defaults to release namespace provided to Helm
-  name: ""
-  create: true
-
 rbac:
   create: true
 

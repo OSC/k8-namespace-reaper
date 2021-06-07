@@ -1,8 +1,0 @@
-{{- if .Values.namespace.create -}}
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ include "k8-namespace-reaper.namespace" . | quote }}
-  labels:
-    {{- include "k8-namespace-reaper.labels" . | nindent 4 }}
-{{- end }}
