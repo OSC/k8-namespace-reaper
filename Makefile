@@ -59,6 +59,7 @@ $(GOLANGCI_LINT):
 release:
 	@mkdir -p release
 	@sed 's/:latest/:$(VERSION)/g' install/deployment.yaml > release/deployment.yaml
+	@sed 's/:latest/:$(VERSION)/g' install/ondemand-deployment.yaml > release/ondemand-deployment.yaml
 	@cp install/namespace-rbac.yaml release/namespace-rbac.yaml
 
 bump-version:
