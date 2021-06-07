@@ -24,9 +24,6 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-namespace:
-  create: true
-
 rbac:
   create: true
 
