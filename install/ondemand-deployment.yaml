@@ -25,6 +25,7 @@ spec:
         args:
         - --prometheus-address=http://prometheus:9090
         - --namespace-labels=app.kubernetes.io/name=open-ondemand
+        - --namespace-last-used-annotation=openondemand.org/last-hook-execution
         - --listen-address=:8080
         - --log-level=info
         - --log-format=logfmt

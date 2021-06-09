@@ -51,6 +51,10 @@ func clientset() kubernetes.Interface {
 			Labels: map[string]string{
 				"app.kubernetes.io/name": "open-ondemand",
 			},
+			Annotations: map[string]string{
+				// date --date="01/08/2020 14:00:00" +%s
+				"openondemand.org/last-hook-execution": "1578510000",
+			},
 			CreationTimestamp: metav1.NewTime(creationTime),
 		},
 	}, &v1.Namespace{
@@ -58,6 +62,10 @@ func clientset() kubernetes.Interface {
 			Name: "user-user2",
 			Labels: map[string]string{
 				"app.kubernetes.io/name": "open-ondemand",
+			},
+			Annotations: map[string]string{
+				// date --date="01/09/2020 14:00:00" +%s
+				"openondemand.org/last-hook-execution": "1578596400",
 			},
 			CreationTimestamp: metav1.NewTime(creationTime.Add(time.Hour * 24)),
 		},
@@ -141,6 +149,46 @@ func TestGetNamespacesByRegexp(t *testing.T) {
 		t.Errorf("Unexpected number of namespaces: %d", len(namespaces))
 	}
 	expected := []string{"user-user1", "user-user2", "user-user3"}
+	sort.Strings(expected)
+	sort.Strings(namespaces)
+	if !reflect.DeepEqual(namespaces, expected) {
+		t.Errorf("Unexpected value for namespaces\nExpected: %v\nGot: %v", expected, namespaces)
+	}
+}
+
+func TestGetNamespacesLastUsedAnnotation(t *testing.T) {
+	args := []string{
+		"--namespace-labels=app.kubernetes.io/name=open-ondemand",
+		"--namespace-last-used-annotation=openondemand.org/last-hook-execution",
+		"--prometheus-address=foobar",
+	}
+	if _, err := kingpin.CommandLine.Parse(args); err != nil {
+		t.Fatal(err)
+	}
+	timeNow = func() time.Time {
+		return creationTime.Add((time.Hour * 24 * 7) + time.Hour)
+	}
+	w := log.NewSyncWriter(os.Stderr)
+	logger := log.NewLogfmtLogger(w)
+	clientset := clientset()
+	namespaces, err := getNamespaces(clientset, logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if len(namespaces) != 0 {
+		t.Errorf("Unexpected number of namespaces: %d", len(namespaces))
+	}
+	timeNow = func() time.Time {
+		return creationTime.Add((time.Hour * 24 * 8) + time.Hour)
+	}
+	namespaces, err = getNamespaces(clientset, logger)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if len(namespaces) != 1 {
+		t.Errorf("Unexpected number of namespaces: %d", len(namespaces))
+	}
+	expected := []string{"user-user1"}
 	sort.Strings(expected)
 	sort.Strings(namespaces)
 	if !reflect.DeepEqual(namespaces, expected) {
