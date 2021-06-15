@@ -40,6 +40,9 @@ spec:
           {{- if .Values.config.namespaceRegexp }}
             - --namespace-regexp={{ .Values.config.namespaceRegexp }}
           {{- end }}
+          {{- if .Values.config.namespaceLastUsedAnnotation }}
+            - --namespace-last-used-annotation={{ .Values.config.namespaceLastUsedAnnotation }}
+          {{- end }}
           {{- if .Values.config.prometheusAddress }}
             - --prometheus-address={{ .Values.config.prometheusAddress }}
           {{- end }}
@@ -48,6 +51,9 @@ spec:
           {{- end }}
           {{- if .Values.config.reapAfter }}
             - --reap-after={{ .Values.config.reapAfter }}
+          {{- end }}
+          {{- if .Values.config.lastUsedThreshold }}
+            - --last-used-threshold={{ .Values.config.lastUsedThreshold }}
           {{- end }}
           {{- if .Values.config.interval }}
             - --interval={{ .Values.config.interval }}

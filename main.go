@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -47,19 +48,21 @@ const (
 )
 
 var (
-	namespaceLabels   = kingpin.Flag("namespace-labels", "Labels to use when filtering namespaces").Default("").Envar("NAMESPACE_LABELS").String()
-	namespaceRegexp   = kingpin.Flag("namespace-regexp", "Regular expression of namespaces to reap").Default("").Envar("NAMESPACE_REGEXP").String()
-	prometheusAddress = kingpin.Flag("prometheus-address", "URL for Prometheus, eg http://prometheus:9090").Envar("PROMETHEUS_ADDRESS").Required().String()
-	prometheusTimeout = kingpin.Flag("prometheus-timeout", "Duration to timeout Prometheus query").Default("30s").Envar("PROMETHEUS_TIMEOUT").Duration()
-	reapAfter         = kingpin.Flag("reap-after", "How long to wait before reaping unused namespaces").Default("168h").Envar("REAP_AFTER").Duration()
-	interval          = kingpin.Flag("interval", "Duration between reap runs").Default("6h").Envar("INTERLVAL").Duration()
-	listenAddress     = kingpin.Flag("listen-address", "Address to listen for HTTP requests").Default(":8080").Envar("LISTEN_ADDRESS").String()
-	processMetrics    = kingpin.Flag("process-metrics", "Collect metrics about running process such as CPU and memory and Go stats").Default("true").Envar("PROCESS_METRICS").Bool()
-	runOnce           = kingpin.Flag("run-once", "Set application to run once then exit, ie executed with cron").Default("false").Envar("RUN_ONCE").Bool()
-	kubeconfig        = kingpin.Flag("kubeconfig", "Path to kubeconfig when running outside Kubernetes cluster").Default("").Envar("KUBECONFIG").String()
-	logLevel          = kingpin.Flag("log-level", "Log level, One of: [debug, info, warn, error]").Default("info").Envar("LOG_LEVEL").String()
-	logFormat         = kingpin.Flag("log-format", "Log format, One of: [logfmt, json]").Default("logfmt").Envar("LOG_FORMAT").String()
-	timestampFormat   = log.TimestampFormat(
+	namespaceLabels             = kingpin.Flag("namespace-labels", "Labels to use when filtering namespaces").Default("").Envar("NAMESPACE_LABELS").String()
+	namespaceRegexp             = kingpin.Flag("namespace-regexp", "Regular expression of namespaces to reap").Default("").Envar("NAMESPACE_REGEXP").String()
+	namespaceLastUsedAnnotation = kingpin.Flag("namespace-last-used-annotation", "Annotation of when namespace was last used, must be Unix timestamp").Default("").Envar("NAMESPACE_LAST_USED_ANNOTATION").String()
+	prometheusAddress           = kingpin.Flag("prometheus-address", "URL for Prometheus, eg http://prometheus:9090").Envar("PROMETHEUS_ADDRESS").Required().String()
+	prometheusTimeout           = kingpin.Flag("prometheus-timeout", "Duration to timeout Prometheus query").Default("30s").Envar("PROMETHEUS_TIMEOUT").Duration()
+	reapAfter                   = kingpin.Flag("reap-after", "How long to wait before reaping unused namespaces").Default("168h").Envar("REAP_AFTER").Duration()
+	lastUsedThreshold           = kingpin.Flag("last-used-threshold", "How long after last used can a namespace be reaped").Default("4h").Envar("LAST_USED_THRESHOLD").Duration()
+	interval                    = kingpin.Flag("interval", "Duration between reap runs").Default("6h").Envar("INTERLVAL").Duration()
+	listenAddress               = kingpin.Flag("listen-address", "Address to listen for HTTP requests").Default(":8080").Envar("LISTEN_ADDRESS").String()
+	processMetrics              = kingpin.Flag("process-metrics", "Collect metrics about running process such as CPU and memory and Go stats").Default("true").Envar("PROCESS_METRICS").Bool()
+	runOnce                     = kingpin.Flag("run-once", "Set application to run once then exit, ie executed with cron").Default("false").Envar("RUN_ONCE").Bool()
+	kubeconfig                  = kingpin.Flag("kubeconfig", "Path to kubeconfig when running outside Kubernetes cluster").Default("").Envar("KUBECONFIG").String()
+	logLevel                    = kingpin.Flag("log-level", "Log level, One of: [debug, info, warn, error]").Default("info").Envar("LOG_LEVEL").String()
+	logFormat                   = kingpin.Flag("log-format", "Log format, One of: [logfmt, json]").Default("logfmt").Envar("LOG_FORMAT").String()
+	timestampFormat             = log.TimestampFormat(
 		func() time.Time { return time.Now().UTC() },
 		"2006-01-02T15:04:05.000Z07:00",
 	)
@@ -259,6 +262,22 @@ func getNamespaces(clientset kubernetes.Interface, logger log.Logger) ([]string,
 			if currentAge < *reapAfter {
 				level.Debug(logger).Log("msg", "Skipping namespace due to age", "namespace", namespace.Name, "age", currentAge.String())
 				continue
+			}
+			if *namespaceLastUsedAnnotation != "" {
+				if val, ok := namespace.Annotations[*namespaceLastUsedAnnotation]; ok {
+					sec, err := strconv.ParseInt(val, 10, 64)
+					if err != nil {
+						level.Error(logger).Log("msg", "Unable to parse namespace last used annotation", "namespace", namespace.Name, "err", err)
+						continue
+					}
+					timeSinceLastUsed := timeNow().Sub(time.Unix(sec, 0))
+					if timeSinceLastUsed < *lastUsedThreshold {
+						level.Debug(logger).Log("msg", "Skipping namespace due to recently used", "namespace", namespace.Name, "last-used", timeSinceLastUsed.String())
+						continue
+					}
+				} else {
+					level.Debug(logger).Log("msg", "Namespace lacks last used annotation", "namespace", namespace.Name)
+				}
 			}
 			namespaces = append(namespaces, namespace.Name)
 		}

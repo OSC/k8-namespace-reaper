@@ -1,5 +1,6 @@
 config:
   prometheusAddress: http://prometheus.prometheus.svc.cluster.local:9090
   namespaceLabels: app.kubernetes.io/name=open-ondemand
+  namespaceLastUsedAnnotation: openondemand.org/last-hook-execution
 extraArgs:
   - --log-level=debug

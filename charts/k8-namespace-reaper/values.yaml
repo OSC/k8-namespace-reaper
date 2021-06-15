@@ -7,10 +7,12 @@ config:
   namespaceLabels: ""
   # For OnDemand
   # namespaceLabels: app.kubernetes.io/name=open-ondemand
+  # namespaceLastUsedAnnotation: openondemand.org/last-hook-execution
   namespaceRegexp: ""
   prometheusAddress: ""
   prometheusTimeout: 30s
   reapAfter: 168h
+  lastUsedThreshold: 4h
   interval: 6h
 extraArgs: []
 

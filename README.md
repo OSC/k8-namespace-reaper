@@ -37,8 +37,9 @@ For Open OnDemand the following adjustments can be made to get a working install
 ```
 helm install k8-namespace-reaper k8-namespace-reaper/k8-namespace-reaper \
 -n k8-namespace-reaper --create-namespace \
---prometheus-address=http://prometheus:9090
---set config.namespaceLabels='app.kubernetes.io/name=open-ondemand'
+--prometheus-address=http://prometheus:9090 \
+--set config.namespaceLabels='app.kubernetes.io/name=open-ondemand' \
+--set config.namespaceLastUsedAnnotation='openondemand.org/last-hook-execution'
 ```
 
 ### Install with YAML
@@ -69,6 +70,9 @@ If you wish to scope the namespaces searched for reaping change either `--namesp
 
 The minimum age of a namespace to reap is set with `--reap-after`. This flag also sets how far back to look for active namespaces by looking at pod metrics. If `--reap-after` is default of `168h` then a namespace older than 7 days with no pods active in last 7 days will be deleted.
 
+Use `--namespace-last-used-annotation` to define a namespace annotation that marks when the namespace was last used.
+A namespace will not be reaped if that last usage is more recent than the duration defined with `--last-used-threshold`.
+
 ## Configuration Details
 
 The k8-namespace-reaper is intended to be deployed inside a Kubernetes cluster. It can also be run outside the cluster via cron.
@@ -79,9 +83,11 @@ The following flags and environment variables can modify the behavior of the k8-
 |---------|----------------------|-------------|
 | --namespace-labels | NAMESPACE_LABELS | Sets namespaces labels for which namespaces to consider for reaping, required if `--namespace-regexp` is not set. |
 | --namespace-regexp | NAMESPACE_REGEXP | Sets namespace regular expression for which namespaces to consider for reaping, required if `--namespace-labels` is not set. |
+| --namespace-last-used-annotation | NAMESPACE\_LAST\_USED_ANNOTATION | Annotation of when namespace was last used, must be Unix timestamp |
 | --prometheus-address | PROMETHEUS_ADDRESS | Prometheus address, eg: http://prometheus:9090, this is required |
 | --prometheus-timeout=30s | PROMETHEUS_TIMEOUT=30s | Prometheus query timeout [Duration](https://golang.org/pkg/time/#ParseDuration) |
 | --reap-after=168h | REAP_AFTER=168h |  [Duration](https://golang.org/pkg/time/#ParseDuration) minimum age of namespaces to reap as well as how far back to look for active pods |
+| --last-used-threshold=4h | LAST\_USED_THRESHOLD=4h | How long after last used can a namespace be reaped (must be a [Duration](https://golang.org/pkg/time/#ParseDuration)) |
 | --interval=6h | INTERVAL=6h | [Duration](https://golang.org/pkg/time/#ParseDuration) between each reaping execution when run in loop |
 | --listen-address=:8080 | LISTEN_ADDRESS=:8080| Address to listen for HTTP requests |
 | --no-process-metrics | PROCESS_METRICS=false | Disable metrics about the running processes such as CPU, memory and Go stats |
