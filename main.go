@@ -268,7 +268,6 @@ func getNamespaces(clientset kubernetes.Interface, logger log.Logger) ([]string,
 					sec, err := strconv.ParseInt(val, 10, 64)
 					if err != nil {
 						level.Error(logger).Log("msg", "Unable to parse namespace last used annotation", "namespace", namespace.Name, "err", err)
-						metricErrorsTotal.Inc()
 						continue
 					}
 					timeSinceLastUsed := timeNow().Sub(time.Unix(sec, 0))

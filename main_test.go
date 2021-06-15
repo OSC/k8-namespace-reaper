@@ -63,10 +63,6 @@ func clientset() kubernetes.Interface {
 			Labels: map[string]string{
 				"app.kubernetes.io/name": "open-ondemand",
 			},
-			Annotations: map[string]string{
-				// date --date="01/09/2020 14:00:00" +%s
-				"openondemand.org/last-hook-execution": "1578596400",
-			},
 			CreationTimestamp: metav1.NewTime(creationTime.Add(time.Hour * 24)),
 		},
 	}, &v1.Namespace{
@@ -74,6 +70,9 @@ func clientset() kubernetes.Interface {
 			Name: "user-user3",
 			Labels: map[string]string{
 				"app.kubernetes.io/name": "foo",
+			},
+			Annotations: map[string]string{
+				"openondemand.org/last-hook-execution": "foo",
 			},
 			CreationTimestamp: metav1.NewTime(creationTime.Add(time.Hour * 24)),
 		},
@@ -158,7 +157,7 @@ func TestGetNamespacesByRegexp(t *testing.T) {
 
 func TestGetNamespacesLastUsedAnnotation(t *testing.T) {
 	args := []string{
-		"--namespace-labels=app.kubernetes.io/name=open-ondemand",
+		"--namespace-regexp=user-.+",
 		"--namespace-last-used-annotation=openondemand.org/last-hook-execution",
 		"--prometheus-address=foobar",
 	}
@@ -185,10 +184,10 @@ func TestGetNamespacesLastUsedAnnotation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	if len(namespaces) != 1 {
+	if len(namespaces) != 2 {
 		t.Errorf("Unexpected number of namespaces: %d", len(namespaces))
 	}
-	expected := []string{"user-user1"}
+	expected := []string{"user-user1", "user-user2"}
 	sort.Strings(expected)
 	sort.Strings(namespaces)
 	if !reflect.DeepEqual(namespaces, expected) {
