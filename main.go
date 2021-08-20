@@ -162,7 +162,9 @@ func main() {
 
 	for {
 		var errNum int
+		start := timeNow()
 		err = run(clientset, logger)
+		metricDuration.Set(time.Since(start).Seconds())
 		if err != nil {
 			errNum = 1
 		}
@@ -213,8 +215,6 @@ func validateArgs(logger log.Logger) []error {
 }
 
 func run(clientset kubernetes.Interface, logger log.Logger) error {
-	start := timeNow()
-	defer metricDuration.Set(time.Since(start).Seconds())
 	namespaces, err := getNamespaces(clientset, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error getting namespaces", "err", err)
