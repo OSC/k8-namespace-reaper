@@ -1,3 +1,7 @@
+## v0.3.0 / 2022-02-28
+
+* Improved pod security
+
 ## v0.2.1 / 2021-08-20
 
 * Fix run duration metrics to be more accurate
