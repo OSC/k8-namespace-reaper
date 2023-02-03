@@ -1,3 +1,7 @@
+## v0.4.0 / 2023-02-03
+
+* Update to Go 1.19 and update Go module dependencies (#5)
+
 ## v0.3.0 / 2022-02-28
 
 * Improved pod security
