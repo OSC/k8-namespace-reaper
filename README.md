@@ -1,7 +1,6 @@
 [![CI Status](https://github.com/OSC/k8-namespace-reaper/workflows/test/badge.svg?branch=main)](https://github.com/OSC/k8-namespace-reaper/actions?query=workflow%3Atest)
 [![GitHub release](https://img.shields.io/github/v/release/OSC/k8-namespace-reaper?include_prereleases&sort=semver)](https://github.com/OSC/k8-namespace-reaper/releases/latest)
 ![GitHub All Releases](https://img.shields.io/github/downloads/OSC/k8-namespace-reaper/total)
-![Docker Pulls](https://img.shields.io/docker/pulls/ohiosupercomputer/k8-namespace-reaper)
 [![Go Report Card](https://goreportcard.com/badge/github.com/OSC/k8-namespace-reaper?ts=1)](https://goreportcard.com/report/github.com/OSC/k8-namespace-reaper)
 [![codecov](https://codecov.io/gh/OSC/k8-namespace-reaper/branch/main/graph/badge.svg)](https://codecov.io/gh/OSC/k8-namespace-reaper)
 

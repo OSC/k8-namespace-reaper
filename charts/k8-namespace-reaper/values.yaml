@@ -17,7 +17,7 @@ config:
 extraArgs: []
 
 image:
-  repository: docker.io/ohiosupercomputer/k8-namespace-reaper
+  repository: quay.io/ohiosupercomputercenter/k8-namespace-reaper
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag:
