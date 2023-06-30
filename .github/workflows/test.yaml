@@ -55,7 +55,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: false
-          tags: docker.io/ohiosupercomputer/k8-namespace-reaper:latest
+          tags: quay.io/ohiosupercomputercenter/k8-namespace-reaper:latest
           outputs: type=docker,dest=/tmp/k8-namespace-reaper.tar
       - name: Upload Docker image
         uses: actions/upload-artifact@v3
@@ -95,7 +95,7 @@ jobs:
       - name: Load image
         run: |
           docker load --input /tmp/k8-namespace-reaper.tar
-          kind load docker-image docker.io/ohiosupercomputer/k8-namespace-reaper:latest
+          kind load docker-image quay.io/ohiosupercomputercenter/k8-namespace-reaper:latest
       - name: Update chart values
         run: |
           sed -i \

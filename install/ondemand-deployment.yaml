@@ -20,7 +20,7 @@ spec:
       serviceAccountName: k8-namespace-reaper
       containers:
       - name: ondemand-k8-namespace-reaper
-        image: docker.io/ohiosupercomputer/k8-namespace-reaper:latest
+        image: quay.io/ohiosupercomputercenter/k8-namespace-reaper:latest
         imagePullPolicy: Always
         args:
         - --prometheus-address=http://prometheus:9090
