@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -24,15 +25,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/common/promslog"
 	"github.com/prometheus/common/version"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -60,14 +60,10 @@ var (
 	processMetrics              = kingpin.Flag("process-metrics", "Collect metrics about running process such as CPU and memory and Go stats").Default("true").Envar("PROCESS_METRICS").Bool()
 	runOnce                     = kingpin.Flag("run-once", "Set application to run once then exit, ie executed with cron").Default("false").Envar("RUN_ONCE").Bool()
 	kubeconfig                  = kingpin.Flag("kubeconfig", "Path to kubeconfig when running outside Kubernetes cluster").Default("").Envar("KUBECONFIG").String()
-	logLevel                    = kingpin.Flag("log-level", "Log level, One of: [debug, info, warn, error]").Default("info").Envar("LOG_LEVEL").String()
-	logFormat                   = kingpin.Flag("log-format", "Log format, One of: [logfmt, json]").Default("logfmt").Envar("LOG_FORMAT").String()
-	timestampFormat             = log.TimestampFormat(
-		func() time.Time { return time.Now().UTC() },
-		"2006-01-02T15:04:05.000Z07:00",
-	)
-	timeNow         = time.Now
-	metricBuildInfo = prometheus.NewGauge(prometheus.GaugeOpts{
+	logLevel                    = kingpin.Flag("log-level", "Log level, One of: [debug, info, warn, error]").Default("info").Envar("LOG_LEVEL").Enum(promslog.LevelFlagOptions...)
+	logFormat                   = kingpin.Flag("log-format", "Log format, One of: [logfmt, json]").Default("logfmt").Envar("LOG_FORMAT").Enum(promslog.FormatFlagOptions...)
+	timeNow                     = time.Now
+	metricBuildInfo             = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Name:      "build_info",
 		Help:      "Build information",
@@ -122,25 +118,25 @@ func main() {
 	var config *rest.Config
 	var err error
 	if *kubeconfig == "" {
-		level.Info(logger).Log("msg", "Loading in cluster kubeconfig", "kubeconfig", *kubeconfig)
+		logger.Info("Loading in cluster kubeconfig", "kubeconfig", *kubeconfig)
 		config, err = rest.InClusterConfig()
 	} else {
-		level.Info(logger).Log("msg", "Loading kubeconfig", "kubeconfig", *kubeconfig)
+		logger.Info("Loading kubeconfig", "kubeconfig", *kubeconfig)
 		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	}
 	if err != nil {
-		level.Error(logger).Log("msg", "Error loading kubeconfig", "err", err)
+		logger.Error("Error loading kubeconfig", "err", err)
 		os.Exit(1)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		level.Error(logger).Log("msg", "Unable to generate Clientset", "err", err)
+		logger.Error("Unable to generate Clientset", "err", err)
 		os.Exit(1)
 	}
 
-	level.Info(logger).Log("msg", fmt.Sprintf("Starting %s", appName), "version", version.Info())
-	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
+	logger.Info(fmt.Sprintf("Starting %s", appName), "version", version.Info())
+	logger.Info("Build context", "build_context", version.BuildContext())
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
@@ -155,7 +151,7 @@ func main() {
 
 	go func() {
 		if err := http.ListenAndServe(*listenAddress, nil); err != nil {
-			level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+			logger.Error("Error starting HTTP server", "err", err)
 			os.Exit(1)
 		}
 	}()
@@ -172,69 +168,57 @@ func main() {
 		if *runOnce {
 			os.Exit(errNum)
 		} else {
-			level.Debug(logger).Log("msg", "Sleeping for interval", "interval", fmt.Sprintf("%.0f", (*interval).Seconds()))
+			logger.Debug("Sleeping for interval", "interval", fmt.Sprintf("%.0f", (*interval).Seconds()))
 			time.Sleep(*interval)
 		}
 	}
 }
 
-func setupLogging() log.Logger {
-	var logger log.Logger
-	if *logFormat == "json" {
-		logger = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-	} else {
-		logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+func setupLogging() *slog.Logger {
+	level := &promslog.AllowedLevel{}
+	_ = level.Set(*logLevel)
+	format := &promslog.AllowedFormat{}
+	_ = format.Set(*logFormat)
+	promslogConfig := &promslog.Config{
+		Level:  level,
+		Format: format,
 	}
-	switch *logLevel {
-	case "debug":
-		logger = level.NewFilter(logger, level.AllowDebug())
-	case "info":
-		logger = level.NewFilter(logger, level.AllowInfo())
-	case "warn":
-		logger = level.NewFilter(logger, level.AllowWarn())
-	case "error":
-		logger = level.NewFilter(logger, level.AllowError())
-	default:
-		logger = level.NewFilter(logger, level.AllowError())
-		level.Error(logger).Log("msg", "Unrecognized log level", "level", *logLevel)
-		return nil
-	}
-	logger = log.With(logger, "ts", timestampFormat, "caller", log.DefaultCaller)
+	logger := promslog.New(promslogConfig)
 	return logger
 }
 
-func validateArgs(logger log.Logger) []error {
+func validateArgs(logger *slog.Logger) []error {
 	var errs []error
 	if *namespaceLabels == "" && *namespaceRegexp == "" {
 		errs = append(errs, errors.New("Must provide either namespaces labels or namespace regexp"))
 	}
 	for _, err := range errs {
-		level.Error(logger).Log("err", err)
+		logger.Error(err.Error())
 	}
 	return errs
 }
 
-func run(clientset kubernetes.Interface, logger log.Logger) error {
+func run(clientset kubernetes.Interface, logger *slog.Logger) error {
 	namespaces, err := getNamespaces(clientset, logger)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error getting namespaces", "err", err)
+		logger.Error("Error getting namespaces", "err", err)
 		return err
 	}
 	activeNamespaces, err := getActiveNamespaces(logger)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error getting active namespaces", "err", err)
+		logger.Error("Error getting active namespaces", "err", err)
 		return err
 	}
 	errCount := reap(namespaces, activeNamespaces, clientset, logger)
 	if errCount > 0 {
 		err := fmt.Errorf("%d errors encountered during reap", errCount)
-		level.Error(logger).Log("msg", err)
+		logger.Error(err.Error())
 		return err
 	}
 	return nil
 }
 
-func getNamespaces(clientset kubernetes.Interface, logger log.Logger) ([]string, error) {
+func getNamespaces(clientset kubernetes.Interface, logger *slog.Logger) ([]string, error) {
 	var namespaces []string
 	namespacePattern := regexp.MustCompile(*namespaceRegexp)
 	nsLabels := strings.Split(*namespaceLabels, ",")
@@ -246,37 +230,37 @@ func getNamespaces(clientset kubernetes.Interface, logger log.Logger) ([]string,
 		if label != "all" {
 			nsListOptions.LabelSelector = label
 		}
-		level.Debug(logger).Log("msg", "Getting namespaces with label", "label", label)
+		logger.Debug("Getting namespaces with label", "label", label)
 		ns, err := clientset.CoreV1().Namespaces().List(context.TODO(), nsListOptions)
 		if err != nil {
-			level.Error(logger).Log("msg", "Error getting namespace list", "label", label, "err", err)
+			logger.Error("Error getting namespace list", "label", label, "err", err)
 			return nil, err
 		}
-		level.Debug(logger).Log("msg", "Namespaces returned", "count", len(ns.Items))
+		logger.Debug("Namespaces returned", "count", len(ns.Items))
 		for _, namespace := range ns.Items {
 			if *namespaceRegexp != "" && !namespacePattern.MatchString(namespace.Name) {
-				level.Debug(logger).Log("msg", "Skipping namespace that does not match namespace regexp", "namespace", namespace.Name)
+				logger.Debug("Skipping namespace that does not match namespace regexp", "namespace", namespace.Name)
 				continue
 			}
 			currentAge := timeNow().Sub(namespace.CreationTimestamp.Time)
 			if currentAge < *reapAfter {
-				level.Debug(logger).Log("msg", "Skipping namespace due to age", "namespace", namespace.Name, "age", currentAge.String())
+				logger.Debug("Skipping namespace due to age", "namespace", namespace.Name, "age", currentAge.String())
 				continue
 			}
 			if *namespaceLastUsedAnnotation != "" {
 				if val, ok := namespace.Annotations[*namespaceLastUsedAnnotation]; ok {
 					sec, err := strconv.ParseInt(val, 10, 64)
 					if err != nil {
-						level.Error(logger).Log("msg", "Unable to parse namespace last used annotation", "namespace", namespace.Name, "err", err)
+						logger.Error("Unable to parse namespace last used annotation", "namespace", namespace.Name, "err", err)
 						continue
 					}
 					timeSinceLastUsed := timeNow().Sub(time.Unix(sec, 0))
 					if timeSinceLastUsed < *lastUsedThreshold {
-						level.Debug(logger).Log("msg", "Skipping namespace due to recently used", "namespace", namespace.Name, "last-used", timeSinceLastUsed.String())
+						logger.Debug("Skipping namespace due to recently used", "namespace", namespace.Name, "last-used", timeSinceLastUsed.String())
 						continue
 					}
 				} else {
-					level.Debug(logger).Log("msg", "Namespace lacks last used annotation", "namespace", namespace.Name)
+					logger.Debug("Namespace lacks last used annotation", "namespace", namespace.Name)
 				}
 			}
 			namespaces = append(namespaces, namespace.Name)
@@ -285,13 +269,13 @@ func getNamespaces(clientset kubernetes.Interface, logger log.Logger) ([]string,
 	return namespaces, nil
 }
 
-func getActiveNamespaces(logger log.Logger) ([]string, error) {
+func getActiveNamespaces(logger *slog.Logger) ([]string, error) {
 	var namespaces []string
 	client, err := api.NewClient(api.Config{
 		Address: *prometheusAddress,
 	})
 	if err != nil {
-		level.Error(logger).Log("msg", "Error creating client", "err", err)
+		logger.Error("Error creating client", "err", err)
 		return nil, err
 	}
 
@@ -306,11 +290,11 @@ func getActiveNamespaces(logger log.Logger) ([]string, error) {
 		queryFilter, (*reapAfter).String())
 	result, warnings, err := v1api.Query(ctx, query, time.Now())
 	if err != nil {
-		level.Error(logger).Log("msg", "Error querying Prometheus", "err", err)
+		logger.Error("Error querying Prometheus", "err", err)
 		return nil, err
 	}
 	for _, warning := range warnings {
-		level.Warn(logger).Log("msg", "Warning querying Prometheus", "warning", warning)
+		logger.Warn("Warning querying Prometheus", "warning", warning)
 	}
 	if result.Type() == model.ValVector {
 		vector := result.(model.Vector)
@@ -320,33 +304,33 @@ func getActiveNamespaces(logger log.Logger) ([]string, error) {
 			}
 		}
 	} else {
-		level.Error(logger).Log("msg", "Unrecognized result type", "type", result.Type())
+		logger.Error("Unrecognized result type", "type", result.Type())
 		return nil, err
 	}
 	return namespaces, nil
 }
 
-func reap(namespaces []string, activeNamespaces []string, clientset kubernetes.Interface, logger log.Logger) int {
+func reap(namespaces []string, activeNamespaces []string, clientset kubernetes.Interface, logger *slog.Logger) int {
 	reaped := 0
 	errCount := 0
 	for _, namespace := range namespaces {
-		namespaceLogger := log.With(logger, "namespace", namespace)
+		namespaceLogger := logger.With("namespace", namespace)
 		if sliceContains(activeNamespaces, namespace) {
-			level.Debug(namespaceLogger).Log("msg", "Skipping active namespace")
+			namespaceLogger.Debug("Skipping active namespace")
 			continue
 		}
-		level.Info(namespaceLogger).Log("msg", "Reaping namespace")
+		namespaceLogger.Info("Reaping namespace")
 		err := clientset.CoreV1().Namespaces().Delete(context.TODO(), namespace, metav1.DeleteOptions{})
 		if err != nil {
 			errCount++
-			level.Error(namespaceLogger).Log("msg", "Error deleting namespace", "err", err)
+			namespaceLogger.Error("Error deleting namespace", "err", err)
 			metricErrorsTotal.Inc()
 		} else {
 			reaped++
 			metricReapedTotal.Inc()
 		}
 	}
-	level.Info(logger).Log("msg", "Reap summary", "namespaces", reaped)
+	logger.Info("Reap summary", "namespaces", reaped)
 	return errCount
 }
 

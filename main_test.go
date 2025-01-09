@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -26,9 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/log"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/prometheus/common/promslog"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -87,8 +88,7 @@ func TestGetNamespacesByLabel(t *testing.T) {
 	timeNow = func() time.Time {
 		return creationTime.Add((time.Hour * 24 * 7) + time.Hour)
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	clientset := clientset()
 	namespaces, err := getNamespaces(clientset, logger)
 	if err != nil {
@@ -112,8 +112,7 @@ func TestGetNamespacesByLabelLargerAge(t *testing.T) {
 	timeNow = func() time.Time {
 		return creationTime.Add((time.Hour * 24 * 9))
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	clientset := clientset()
 	namespaces, err := getNamespaces(clientset, logger)
 	if err != nil {
@@ -137,8 +136,7 @@ func TestGetNamespacesByRegexp(t *testing.T) {
 	timeNow = func() time.Time {
 		return creationTime.Add((time.Hour * 24 * 9))
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	clientset := clientset()
 	namespaces, err := getNamespaces(clientset, logger)
 	if err != nil {
@@ -167,8 +165,7 @@ func TestGetNamespacesLastUsedAnnotation(t *testing.T) {
 	timeNow = func() time.Time {
 		return creationTime.Add((time.Hour * 24 * 7) + time.Hour)
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	clientset := clientset()
 	namespaces, err := getNamespaces(clientset, logger)
 	if err != nil {
@@ -207,8 +204,7 @@ func TestGetNamespacesByRegexpAndLabel(t *testing.T) {
 	timeNow = func() time.Time {
 		return creationTime.Add((time.Hour * 24 * 9))
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	clientset := clientset()
 	namespaces, err := getNamespaces(clientset, logger)
 	if err != nil {
@@ -240,8 +236,7 @@ func TestGetActiveNamespaces(t *testing.T) {
 	if _, err := kingpin.CommandLine.Parse(args); err != nil {
 		t.Fatal(err)
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 	activeNamespaces, err := getActiveNamespaces(logger)
 	if err != nil {
@@ -275,8 +270,7 @@ func TestRun(t *testing.T) {
 	if _, err := kingpin.CommandLine.Parse(args); err != nil {
 		t.Fatal(err)
 	}
-	w := log.NewSyncWriter(os.Stderr)
-	logger := log.NewLogfmtLogger(w)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 	timeNow = func() time.Time {
 		return creationTime.Add((time.Hour * 24 * 9))
@@ -320,7 +314,7 @@ func TestValidateArgs(t *testing.T) {
 	if _, err := kingpin.CommandLine.Parse([]string{"--prometheus-address=foobar"}); err != nil {
 		t.Errorf("Unexpected error parsing args")
 	}
-	err := validateArgs(log.NewNopLogger())
+	err := validateArgs(promslog.NewNopLogger())
 	if err == nil {
 		t.Errorf("Expected error")
 	}
@@ -350,14 +344,5 @@ func TestSetupLogging(t *testing.T) {
 	logger := setupLogging()
 	if logger == nil {
 		t.Errorf("Unexpected error getting logger")
-	}
-	args = []string{"--log-level=foo"}
-	args = append(baseArgs, args...)
-	if _, err := kingpin.CommandLine.Parse(args); err != nil {
-		t.Fatal(err)
-	}
-	logger = setupLogging()
-	if logger != nil {
-		t.Errorf("Expected an error getting logger")
 	}
 }
