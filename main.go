@@ -175,9 +175,9 @@ func main() {
 }
 
 func setupLogging() *slog.Logger {
-	level := &promslog.AllowedLevel{}
+	level := promslog.NewLevel()
 	_ = level.Set(*logLevel)
-	format := &promslog.AllowedFormat{}
+	format := promslog.NewFormat()
 	_ = format.Set(*logFormat)
 	promslogConfig := &promslog.Config{
 		Level:  level,
@@ -190,7 +190,7 @@ func setupLogging() *slog.Logger {
 func validateArgs(logger *slog.Logger) []error {
 	var errs []error
 	if *namespaceLabels == "" && *namespaceRegexp == "" {
-		errs = append(errs, errors.New("Must provide either namespaces labels or namespace regexp"))
+		errs = append(errs, errors.New("must provide either namespaces labels or namespace regexp"))
 	}
 	for _, err := range errs {
 		logger.Error(err.Error())
