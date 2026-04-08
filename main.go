@@ -53,6 +53,7 @@ var (
 	namespaceLastUsedAnnotation = kingpin.Flag("namespace-last-used-annotation", "Annotation of when namespace was last used, must be Unix timestamp").Default("").Envar("NAMESPACE_LAST_USED_ANNOTATION").String()
 	prometheusAddress           = kingpin.Flag("prometheus-address", "URL for Prometheus, eg http://prometheus:9090").Envar("PROMETHEUS_ADDRESS").Required().String()
 	prometheusTimeout           = kingpin.Flag("prometheus-timeout", "Duration to timeout Prometheus query").Default("30s").Envar("PROMETHEUS_TIMEOUT").Duration()
+	prometheusRetryTimeout      = kingpin.Flag("prometheus-retry-timeout", "Duration to timeout when retrying Prometheus query").Default("5m").Envar("PROMETHEUS_RETRY_TIMEOUT").Duration()
 	reapAfter                   = kingpin.Flag("reap-after", "How long to wait before reaping unused namespaces").Default("168h").Envar("REAP_AFTER").Duration()
 	lastUsedThreshold           = kingpin.Flag("last-used-threshold", "How long after last used can a namespace be reaped").Default("4h").Envar("LAST_USED_THRESHOLD").Duration()
 	interval                    = kingpin.Flag("interval", "Duration between reap runs").Default("6h").Envar("INTERLVAL").Duration()
@@ -280,33 +281,49 @@ func getActiveNamespaces(logger *slog.Logger) ([]string, error) {
 	}
 
 	v1api := v1.NewAPI(client)
-	ctx, cancel := context.WithTimeout(context.Background(), *prometheusTimeout)
-	defer cancel()
-	var queryFilter string
-	if *namespaceRegexp != "" {
-		queryFilter = fmt.Sprintf("{namespace=~\"%s\"}", *namespaceRegexp)
-	}
-	query := fmt.Sprintf("max(max_over_time(timestamp(kube_pod_container_info%s)[%s:5m])) by (namespace)",
-		queryFilter, (*reapAfter).String())
-	result, warnings, err := v1api.Query(ctx, query, time.Now())
-	if err != nil {
-		logger.Error("Error querying Prometheus", "err", err)
-		return nil, err
-	}
-	for _, warning := range warnings {
-		logger.Warn("Warning querying Prometheus", "warning", warning)
-	}
-	if result.Type() == model.ValVector {
-		vector := result.(model.Vector)
-		for _, vec := range vector {
-			if val, ok := vec.Metric["namespace"]; ok {
-				namespaces = append(namespaces, string(val))
-			}
+
+	// Retry logic for Prometheus query with timeout
+	startTime := timeNow()
+	timeout := *prometheusRetryTimeout
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), *prometheusTimeout)
+		defer cancel()
+		var queryFilter string
+		if *namespaceRegexp != "" {
+			queryFilter = fmt.Sprintf("{namespace=~\"%s\"}", *namespaceRegexp)
 		}
-	} else {
-		logger.Error("Unrecognized result type", "type", result.Type())
-		return nil, err
+		query := fmt.Sprintf("max(max_over_time(timestamp(kube_pod_container_info%s)[%s:5m])) by (namespace)",
+			queryFilter, (*reapAfter).String())
+		result, warnings, err := v1api.Query(ctx, query, time.Now())
+		if err != nil {
+			logger.Error("Error querying Prometheus", "err", err)
+			elapsed := timeNow().Sub(startTime)
+			if elapsed < timeout {
+				logger.Info("Retrying Prometheus query", "elapsed", elapsed, "timeout", timeout)
+				time.Sleep(time.Second * 5) // Wait a bit before retrying
+				continue
+			}
+			logger.Error("Retry timeout reached", "elapsed", elapsed, "timeout", timeout)
+			return nil, err
+		}
+
+		for _, warning := range warnings {
+			logger.Warn("Warning querying Prometheus", "warning", warning)
+		}
+		if result.Type() == model.ValVector {
+			vector := result.(model.Vector)
+			for _, vec := range vector {
+				if val, ok := vec.Metric["namespace"]; ok {
+					namespaces = append(namespaces, string(val))
+				}
+			}
+		} else {
+			logger.Error("Unrecognized result type", "type", result.Type())
+			return nil, err
+		}
+		break
 	}
+
 	return namespaces, nil
 }
 
