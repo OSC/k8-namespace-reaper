@@ -87,6 +87,7 @@ The following flags and environment variables can modify the behavior of the k8-
 | --namespace-last-used-annotation | NAMESPACE\_LAST\_USED_ANNOTATION | Annotation of when namespace was last used, must be Unix timestamp |
 | --prometheus-address | PROMETHEUS_ADDRESS | Prometheus address, eg: http://prometheus:9090, this is required |
 | --prometheus-timeout=30s | PROMETHEUS_TIMEOUT=30s | Prometheus query timeout [Duration](https://golang.org/pkg/time/#ParseDuration) |
+| --prometheus-retry-timeout=5m | PROMETHEUS_RETRY_TIMEOUT=5m | Duration to timeout when retrying Prometheus query |
 | --reap-after=168h | REAP_AFTER=168h |  [Duration](https://golang.org/pkg/time/#ParseDuration) minimum age of namespaces to reap as well as how far back to look for active pods |
 | --last-used-threshold=4h | LAST\_USED_THRESHOLD=4h | How long after last used can a namespace be reaped (must be a [Duration](https://golang.org/pkg/time/#ParseDuration)) |
 | --interval=6h | INTERVAL=6h | [Duration](https://golang.org/pkg/time/#ParseDuration) between each reaping execution when run in loop |
