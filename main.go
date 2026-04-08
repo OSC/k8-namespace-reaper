@@ -285,16 +285,18 @@ func getActiveNamespaces(logger *slog.Logger) ([]string, error) {
 	// Retry logic for Prometheus query with timeout
 	startTime := timeNow()
 	timeout := *prometheusRetryTimeout
+	ctx, cancel := context.WithTimeout(context.Background(), *prometheusTimeout)
+	defer cancel()
+	var queryFilter string
+	if *namespaceRegexp != "" {
+		queryFilter = fmt.Sprintf("{namespace=~\"%s\"}", *namespaceRegexp)
+	}
+	query := fmt.Sprintf("max(max_over_time(timestamp(kube_pod_container_info%s)[%s:5m])) by (namespace)",
+		queryFilter, (*reapAfter).String())
+	var result model.Value
+	var warnings v1.Warnings
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), *prometheusTimeout)
-		defer cancel()
-		var queryFilter string
-		if *namespaceRegexp != "" {
-			queryFilter = fmt.Sprintf("{namespace=~\"%s\"}", *namespaceRegexp)
-		}
-		query := fmt.Sprintf("max(max_over_time(timestamp(kube_pod_container_info%s)[%s:5m])) by (namespace)",
-			queryFilter, (*reapAfter).String())
-		result, warnings, err := v1api.Query(ctx, query, time.Now())
+		result, warnings, err = v1api.Query(ctx, query, time.Now())
 		if err != nil {
 			logger.Error("Error querying Prometheus", "err", err)
 			elapsed := timeNow().Sub(startTime)
@@ -306,22 +308,22 @@ func getActiveNamespaces(logger *slog.Logger) ([]string, error) {
 			logger.Error("Retry timeout reached", "elapsed", elapsed, "timeout", timeout)
 			return nil, err
 		}
-
-		for _, warning := range warnings {
-			logger.Warn("Warning querying Prometheus", "warning", warning)
-		}
-		if result.Type() == model.ValVector {
-			vector := result.(model.Vector)
-			for _, vec := range vector {
-				if val, ok := vec.Metric["namespace"]; ok {
-					namespaces = append(namespaces, string(val))
-				}
-			}
-		} else {
-			logger.Error("Unrecognized result type", "type", result.Type())
-			return nil, err
-		}
 		break
+	}
+
+	for _, warning := range warnings {
+		logger.Warn("Warning querying Prometheus", "warning", warning)
+	}
+	if result.Type() == model.ValVector {
+		vector := result.(model.Vector)
+		for _, vec := range vector {
+			if val, ok := vec.Metric["namespace"]; ok {
+				namespaces = append(namespaces, string(val))
+			}
+		}
+	} else {
+		logger.Error("Unrecognized result type", "type", result.Type())
+		return nil, err
 	}
 
 	return namespaces, nil
