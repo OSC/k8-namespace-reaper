@@ -49,9 +49,9 @@ jobs:
       - name: Build
         run: make build
       - name: Run GoReleaser build
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
-          version: latest
+          version: '~> v2'
           args: build --snapshot --clean
       - name: Docker Build
         uses: docker/build-push-action@v7
