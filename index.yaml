@@ -2,6 +2,18 @@ apiVersion: v1
 entries:
   k8-namespace-reaper:
   - apiVersion: v2
+    appVersion: v0.10.0
+    created: "2026-06-22T16:51:24.034661957Z"
+    description: Kubernetes namespace reaper
+    digest: c0178880c1b0ffd28cf153b36854cfdcf96bf270aa4baa16e4c1dcb834e04617
+    maintainers:
+    - name: treydock
+    name: k8-namespace-reaper
+    type: application
+    urls:
+    - https://OSC.github.io/k8-namespace-reaper/k8-namespace-reaper-v0.10.0.tgz
+    version: v0.10.0
+  - apiVersion: v2
     appVersion: v0.9.0
     created: "2026-04-09T13:34:31.169133329Z"
     description: Kubernetes namespace reaper
@@ -121,4 +133,4 @@ entries:
     urls:
     - https://OSC.github.io/k8-namespace-reaper/k8-namespace-reaper-v0.1.0.tgz
     version: v0.1.0
-generated: "2026-04-09T13:34:31.168463363Z"
+generated: "2026-06-22T16:51:24.034087124Z"
