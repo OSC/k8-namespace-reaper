@@ -1,3 +1,7 @@
+## v0.10.0 / 2026-06-22
+
+* Update to Go 1.26.4 and update module dependencies (#18)
+
 ## v0.9.0 / 2026-04-09
 
 * Add Prometheus query retry logic (#15)
