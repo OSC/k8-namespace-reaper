@@ -15,7 +15,7 @@ Metrics about the count of reaped namespaces, duration of last reaping, and erro
 
 ## Kubernetes support
 
-Currently this code is built and tested against Kubernetes 1.32.x.
+Currently this code is built and tested against Kubernetes 1.33.x.
 
 The Kubernetes APIs used by this project do not tend to change between Kubernetes releases so it is likely this code will work on all 1.x releases of Kubernetes.
 
